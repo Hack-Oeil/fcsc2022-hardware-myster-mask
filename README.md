@@ -16,8 +16,6 @@ Attention, en tant que bon détective, Myster Mask a protégé cette inversion e
 
 
 Fichiers :
-
-Fichiers :
 - [output.txt](output.txt) 
 - [myster_mask.py](myster_mask.py) 
 - [inputs.npz](https://hackropole.fr/challenges/fcsc2022-hardware-myster-mask/public/inputs.npz)

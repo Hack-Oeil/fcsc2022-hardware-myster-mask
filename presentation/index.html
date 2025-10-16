@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="fr">
+    <meta charset="UTF-8">
+    <!--Page Title-->
+    <title>Hack-Oeil - Les CTFs de Cyrhades</title>
+    <!--Meta Keywords and Description-->
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <link rel="shortcut icon" href="./assets/images/favicon.ico" title="Favicon" />
+    <link rel="stylesheet" href="./assets/css/style.css">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="./assets/css/github.min.css">
+    <script src="./assets/js/highlight.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Vérifie si la fenêtre est dans une iframe
+            if (window.self !== window.top) {
+                document.querySelectorAll('a').forEach((link) => {
+                    link.addEventListener('click', (event) => {
+                        const a = event.target.closest('a[href^="http"]');
+                        if (a) {
+                            event.preventDefault();
+                            window.parent.postMessage({
+                                type: "open-external",
+                                url: a.href
+                            }, "*");
+                        }
+                    });
+                });
+            }
+            // Active la coloration syntaxique :
+            if (window.hljs) {
+                hljs.highlightAll();
+            } else {
+                console.error("Highlight.js non chargé !");
+            }
+        });
+    </script>
+</head>
+
+<body>
+
+    <div id="wrapper">
+        <!--Main Content Area-->
+        <main id="content">
+            <!--Ctf-->
+            <section class="ctf scrollto">
+                <article class="row clearfix">
+                    <div class="col-1">
+                        <div class="section-heading">
+                            <h3>Challenge #295</h3>
+                            <h2 class="section-title">Myster Mask</h2>
+                            <p>
+                                Myster Mask a conçu une implémentation qui craint un max !
+                                <br /><br />
+                                Vous allez devoir analyser les traces de consommation d’un début d’implémentation de
+                                l’AES faite par Myster Mask. Saurez-vous exploiter ces traces pour faire la différence ?
+                                <br /><br />
+                                La partie à cibler correspond à l’étape d’<strong>inversion</strong> présente dans le
+                                calcul de la
+                                boîte S dans le premier tour de l’AES. <strong>Seule cette étape est
+                                    implémentée</strong>, il n’est
+                                pas necessaire de connaître l’AES puisque ce challenge est spécifiquement centré sur
+                                l’étape d’inversion.
+                                <br /><br />
+                                Les traces de consommation fournies dans le fichier <code>traces.npz</code> à charger
+                                avec
+                                <code>numpy</code> correspondent à la ligne suivante dans le code
+                                <code>myster_mask.py</code> :
+                                <br /><br />
+                            <pre>masked_inversion(L)</pre>
+                            <br /><br />
+                            Attention, en tant que bon détective, Myster Mask a protégé cette inversion en faisant
+                            honneur à son nom. À vous de jouer !
+                            </p>
+                            <h4>
+                                Fichiers à étudier
+                            </h4>
+                            <p>
+                                - myster_mask.py<br />
+                                - output.txt<br />
+                                - inputs.npz<br />
+                                - traces.npz
+                            </p>
+                            <strong>myster_mask.py</strong>
+                            <pre><code class="language-python">import os
+import json
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+import numpy as np
+import galois
+
+GF256 = galois.GF(256)
+
+def gen_mask():
+    y = 0
+    while not y:
+        y = GF256.Random()
+    return y
+
+def mask(inp):
+    x = gen_mask()
+    y = gen_mask()
+    z = gen_mask()
+    t = gen_mask()
+    return [GF256(inp) / x / y / z / t, x, y, z, t]
+
+def masked_inversion(S):
+    output = S
+    for i in range(5):
+        for j in range(16):
+            output[j][i] = GF256(S[j][i]) ** 254
+    return output
+
+def make_traces(key, inputs):
+
+    for inp in inputs:
+        L = [ mask(inp[i] ^ key[i]) for i in range(16) ]
+
+        # ===== BEGINNING OF THE SIDE CHANNEL TRACE ======= #
+        masked_inversion(L)
+        # =====   END OF THE SIDE CHANNEL TRACE     ======= #
+
+def encrypt_flag(key):
+    iv = os.urandom(16)
+    flag = open("../private/flag.txt", "rb").read()
+    c = AES.new(bytes(key), AES.MODE_CBC, iv = iv).encrypt(pad(flag, 16))
+    return {
+        "iv": iv.hex(),
+        "c": c.hex(),
+    }
+
+def unmask(L):
+    a, b, c, d, e = L
+    return a * b * c * d * e
+
+def test_implementation():
+    for _ in range(100):
+        L1 = list(map(GF256, list(os.urandom(16))))
+        L2 = masked_inversion([ mask(x) for x in L1 ]) # masked inversion
+        L2 = [ unmask(x) for x in L2 ]
+        L3 = [ x ** 254 for x in L1 ] # unmasked inversion
+        assert L2 == L3
+
+if __name__ == "__main__":
+
+    # Check the correctness of the implementation
+    test_implementation()
+
+    # Generate random key and inputs
+    key = list(os.urandom(16))
+    inputs = [ list(os.urandom(16)) for _ in range(5000) ]
+
+    np.savez_compressed("inputs", inputs = np.array(inputs, dtype = np.uint8))
+
+    # Traces are saved externally and given in traces.npz
+    make_traces(key, inputs)
+
+    output = encrypt_flag(key)
+    print(output)
+
+</code></pre>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="row clearfix">
+                    <div class="col-1">
+                        <div class="section-heading">
+                            <h3>FCSC 2022</h3>
+                            <h2 class="section-title">Hackropole</h2>
+                            <p class="section-subtitle">
+                                Lien officiel :
+                                <a target="_blank"
+                                    href="https://hackropole.fr/fr/challenges/hardware/fcsc2022-hardware-myster-mask/">FCSC
+                                    2022 -
+                                    Myster Mask
+                                </a>
+                                <br />
+                                Auteurs: Mélissa et Ange
+                            </p>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="row clearfix">
+                    <div class="col-1">
+                        <div class="section-heading">
+                            <h3>Apprentissage</h3>
+                            <h2 class="section-title">Documentations et Vidéos</h2>
+                            <p class="section-subtitle">
+                                Aucune documentation pour le moment
+                            </p>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="row clearfix">
+                    <div class="col-1">
+                        <div class="section-heading">
+                            <h3>Aide</h3>
+                            <h2 class="section-title">Conseils et indices</h2>
+                            <p class="section-subtitle">
+                                <a target="_blank"
+                                    href="https://discord.com/channels/1175764392307077120/1175764601716092948">Fil sur
+                                    le Discord</a>
+                            </p>
+                        </div>
+                    </div>
+                </article>
+            </section>
+            <!--End of Ctf-->
+        </main>
+        <!--End Main Content Area-->
+
+        <a id="scrollUp" href="#wrapper" style="position: fixed; z-index: 1000;"
+            aria-label="Remonter en haut de la page" title="Remonter en tête de site"></a>
+    </div>
+</body>
+
+</html>
